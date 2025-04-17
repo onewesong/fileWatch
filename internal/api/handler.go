@@ -26,6 +26,7 @@ func InitRouter() *gin.Engine {
 		c.HTML(http.StatusOK, "index.tmpl", gin.H{
 			"title":      "文件访问监控",
 			"monitoring": monitoringActive,
+			"pathPrefix": monitor.GetCurrentPathPrefix(),
 		})
 	})
 
@@ -85,16 +86,27 @@ func startMonitoring(c *gin.Context) {
 		return
 	}
 
+	// 解析请求体，获取目录前缀
+	var request struct {
+		PathPrefix string `json:"pathPrefix"`
+	}
+
+	if err := c.ShouldBindJSON(&request); err != nil {
+		// 如果解析失败也不要报错，视为没有提供前缀
+		request.PathPrefix = ""
+	}
+
 	// 创建一个通道用于停止监控
 	doneChan = make(chan bool)
 	monitoringActive = true
 
-	// 启动监控服务
-	go monitor.StartMonitoring(doneChan)
+	// 启动监控服务，传递目录前缀
+	go monitor.StartMonitoringWithPrefix(doneChan, request.PathPrefix)
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "已启动文件系统监控",
-		"command": monitor.GetFSUsageCommand(),
+		"message":    "已启动文件系统监控",
+		"command":    monitor.GetFSUsageCommand(),
+		"pathPrefix": request.PathPrefix,
 	})
 }
 
@@ -108,6 +120,9 @@ func stopMonitoring(c *gin.Context) {
 	// 发送停止信号
 	doneChan <- true
 	monitoringActive = false
+
+	// 重置监控目录前缀
+	monitor.ResetPathPrefix()
 
 	c.JSON(http.StatusOK, gin.H{"message": "已停止文件系统监控"})
 }

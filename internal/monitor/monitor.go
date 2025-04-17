@@ -26,6 +26,9 @@ type accessKey struct {
 	operation string
 }
 
+// 全局变量，用于存储当前监控的目录前缀
+var currentPathPrefix string
+
 // StartMonitoring 开始监控文件系统访问
 func StartMonitoring(doneChan chan bool) {
 	log.Println("开始监控文件系统访问...")
@@ -312,6 +315,11 @@ func isReadWriteOperation(operation string) bool {
 
 // shouldTrackFile 判断是否应该记录该文件的访问
 func shouldTrackFile(path string) bool {
+	// 如果设置了目录前缀，则只记录以该前缀开始的路径
+	if currentPathPrefix != "" && !strings.HasPrefix(path, currentPathPrefix) {
+		return false
+	}
+
 	// 忽略系统目录和临时文件
 	ignoredPrefixes := []string{
 		"/dev/",
@@ -360,4 +368,25 @@ func shouldTrackFile(path string) bool {
 // GetFSUsageCommand 返回适合用户执行的fs_usage命令
 func GetFSUsageCommand() string {
 	return "sudo fs_usage -w -f filesystem"
+}
+
+// StartMonitoringWithPrefix 开始监控文件系统访问，支持指定目录前缀
+func StartMonitoringWithPrefix(doneChan chan bool, pathPrefix string) {
+	// 设置目录前缀
+	currentPathPrefix = pathPrefix
+	log.Printf("开始监控文件系统访问，目录前缀: %s", currentPathPrefix)
+
+	// 调用原有监控函数
+	StartMonitoring(doneChan)
+}
+
+// ResetPathPrefix 重置监控目录前缀
+func ResetPathPrefix() {
+	currentPathPrefix = ""
+	log.Println("已重置监控目录前缀")
+}
+
+// GetCurrentPathPrefix 获取当前监控的目录前缀
+func GetCurrentPathPrefix() string {
+	return currentPathPrefix
 }

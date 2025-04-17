@@ -25,8 +25,12 @@
                     </div>
                     <div class="p-4">
                         <div class="flex justify-between mb-4">
+                            <div class="flex items-center space-x-2 flex-grow mr-2">
+                                <input type="text" id="monitorPathInput" placeholder="监控目录前缀 (可选，例如: /Users/)" 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            </div>
                             <button id="startMonitorBtn" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300">开始监控</button>
-                            <button id="stopMonitorBtn" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-300 disabled:opacity-50 disabled:cursor-not-allowed" disabled>停止监控</button>
+                            <button id="stopMonitorBtn" class="ml-2 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-300 disabled:opacity-50 disabled:cursor-not-allowed" disabled>停止监控</button>
                         </div>
                         <div id="statusAlert" class="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 rounded">
                             <p>监控状态: <span id="monitorStatus" class="font-medium">未运行</span></p>
@@ -182,6 +186,7 @@
         // 全局变量
         let processChart = null;
         let isMonitoring = {{ if .monitoring }}true{{ else }}false{{ end }};
+        let currentPathPrefix = {{ if .pathPrefix }}"{{ .pathPrefix }}"{{ else }}""{{ end }};
         
         // DOM元素
         const startBtn = document.getElementById('startMonitorBtn');
@@ -193,6 +198,11 @@
         
         // 初始化页面
         document.addEventListener('DOMContentLoaded', function() {
+            // 如果有路径前缀，则设置到输入框
+            if (currentPathPrefix) {
+                document.getElementById('monitorPathInput').value = currentPathPrefix;
+            }
+            
             updateButtonStates();
             loadRecentAccess();
             loadAccessSummary();
@@ -246,8 +256,16 @@
         
         // 开始监控
         function startMonitoring() {
+            const pathPrefix = document.getElementById('monitorPathInput').value.trim();
+            
             fetch('/api/monitor/start', {
-                method: 'POST'
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    pathPrefix: pathPrefix
+                })
             })
             .then(response => response.json())
             .then(data => {
@@ -257,6 +275,12 @@
                 }
                 
                 isMonitoring = true;
+                
+                // 确保使用服务器返回的路径前缀（以防服务器做了规范化处理）
+                if (data.pathPrefix) {
+                    document.getElementById('monitorPathInput').value = data.pathPrefix;
+                }
+                
                 statusText.textContent = '正在运行';
                 commandInfo.classList.remove('hidden');
                 updateButtonStates();
@@ -292,15 +316,24 @@
         
         // 更新按钮状态
         function updateButtonStates() {
+            const pathPrefix = document.getElementById('monitorPathInput').value.trim();
+            
             if (isMonitoring) {
                 startBtn.disabled = true;
                 stopBtn.disabled = false;
+                document.getElementById('monitorPathInput').disabled = true;
                 statusText.textContent = '正在运行';
                 commandInfo.classList.remove('hidden');
                 document.getElementById('statusAlert').className = 'bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded';
+                
+                // 显示监控目录信息
+                if (pathPrefix) {
+                    commandInfo.innerHTML = `运行命令: <code class="bg-green-50 px-1 py-0.5 rounded">sudo fs_usage -f filesystem</code><br><span class="text-sm mt-1">监控目录前缀: <code class="bg-green-50 px-1 py-0.5 rounded">${pathPrefix}</code></span>`;
+                }
             } else {
                 startBtn.disabled = false;
                 stopBtn.disabled = true;
+                document.getElementById('monitorPathInput').disabled = false;
                 statusText.textContent = '未运行';
                 commandInfo.classList.add('hidden');
                 document.getElementById('statusAlert').className = 'bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 rounded';
