@@ -60,6 +60,12 @@
                             class="py-4 px-6 font-medium text-sm border-b-2 focus:outline-none">
                             进程文件访问详情
                         </button>
+                        <button 
+                            @click="activeTab = 'path'" 
+                            :class="{ 'border-blue-500 text-blue-600': activeTab === 'path', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'path' }"
+                            class="py-4 px-6 font-medium text-sm border-b-2 focus:outline-none">
+                            文件路径搜索
+                        </button>
                     </nav>
                 </div>
                 
@@ -118,6 +124,51 @@
                             </table>
                         </div>
                     </div>
+                    
+                    <!-- 第三个标签页：文件路径搜索 -->
+                    <div x-show="activeTab === 'path'" x-cloak class="bg-white rounded-lg shadow-md overflow-hidden">
+                        <div class="bg-gray-100 px-4 py-3 border-b">
+                            <h2 class="text-lg font-semibold text-gray-700 mb-3">文件路径搜索</h2>
+                            <div class="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-2">
+                                <div class="flex-grow">
+                                    <input type="text" id="pathPrefixInput" placeholder="输入文件路径前缀 (例如: /Users/)" 
+                                           class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                </div>
+                                <button id="searchPathBtn" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300">
+                                    搜索
+                                </button>
+                            </div>
+                        </div>
+                        <div class="p-4">
+                            <div id="pathSearchResults" class="hidden">
+                                <h3 class="text-md font-medium text-gray-700 mb-2">搜索结果：<span id="pathPrefix" class="text-blue-600"></span></h3>
+                                <div class="overflow-x-auto">
+                                    <table class="min-w-full divide-y divide-gray-200">
+                                        <thead class="bg-gray-50">
+                                            <tr>
+                                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">时间</th>
+                                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">进程名</th>
+                                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">文件路径</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="pathSearchRecords" class="bg-white divide-y divide-gray-200">
+                                            <tr>
+                                                <td colspan="4" class="px-6 py-4 text-center text-sm text-gray-500">请输入路径前缀并搜索</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div id="noPathSearchYet" class="py-8 text-center text-gray-500">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                                <p>请输入文件路径前缀并点击搜索按钮</p>
+                                <p class="text-sm mt-2">例如：/Users/、/Applications/、/Library/</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>
@@ -168,6 +219,27 @@
                     loadProcessFiles(selectedProcess);
                 } else {
                     alert('请先选择一个进程');
+                }
+            });
+            
+            // 文件路径搜索
+            const pathPrefixInput = document.getElementById('pathPrefixInput');
+            const searchPathBtn = document.getElementById('searchPathBtn');
+            
+            // 注册搜索按钮事件
+            searchPathBtn.addEventListener('click', function() {
+                const pathPrefix = pathPrefixInput.value.trim();
+                if (pathPrefix) {
+                    searchByPathPrefix(pathPrefix);
+                } else {
+                    alert('请输入文件路径前缀');
+                }
+            });
+            
+            // 允许按回车键搜索
+            pathPrefixInput.addEventListener('keyup', function(event) {
+                if (event.key === 'Enter') {
+                    searchPathBtn.click();
                 }
             });
         });
@@ -390,6 +462,56 @@
             .catch(error => {
                 console.error('加载进程文件访问记录失败:', error);
                 processFileRecords.innerHTML = `<tr><td colspan="3" class="px-6 py-4 text-center text-sm text-red-500">加载失败: ${error.message}</td></tr>`;
+            });
+        }
+        
+        // 根据路径前缀搜索文件访问记录
+        function searchByPathPrefix(pathPrefix) {
+            const pathSearchRecords = document.getElementById('pathSearchRecords');
+            const pathSearchResults = document.getElementById('pathSearchResults');
+            const noPathSearchYet = document.getElementById('noPathSearchYet');
+            const pathPrefixDisplay = document.getElementById('pathPrefix');
+            
+            // 显示搜索结果区域，隐藏提示区域
+            pathSearchResults.classList.remove('hidden');
+            noPathSearchYet.classList.add('hidden');
+            
+            // 显示正在搜索的路径前缀
+            pathPrefixDisplay.textContent = pathPrefix;
+            
+            // 显示加载中
+            pathSearchRecords.innerHTML = '<tr><td colspan="4" class="px-6 py-4 text-center text-sm text-gray-500">搜索中...</td></tr>';
+            
+            fetch(`/api/path-files?prefix=${encodeURIComponent(pathPrefix)}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    pathSearchRecords.innerHTML = `<tr><td colspan="4" class="px-6 py-4 text-center text-sm text-red-500">搜索错误: ${data.error}</td></tr>`;
+                    return;
+                }
+                
+                if (data.length === 0) {
+                    pathSearchRecords.innerHTML = `<tr><td colspan="4" class="px-6 py-4 text-center text-sm text-gray-500">未找到匹配的文件访问记录</td></tr>`;
+                    return;
+                }
+                
+                pathSearchRecords.innerHTML = '';
+                data.forEach(record => {
+                    const time = new Date(record.timestamp).toLocaleString();
+                    const row = document.createElement('tr');
+                    row.className = 'hover:bg-gray-50';
+                    row.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${time}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${record.process_name}${record.pid ? '.' + record.pid : ''}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${record.operation}</td>
+                        <td class="px-6 py-4 text-sm text-gray-500 truncate max-w-xs" title="${record.file_path || '无文件路径'}">${record.file_path || '<无文件路径>'}</td>
+                    `;
+                    pathSearchRecords.appendChild(row);
+                });
+            })
+            .catch(error => {
+                console.error('搜索文件路径记录失败:', error);
+                pathSearchRecords.innerHTML = `<tr><td colspan="4" class="px-6 py-4 text-center text-sm text-red-500">搜索失败: ${error.message}</td></tr>`;
             });
         }
     </script>

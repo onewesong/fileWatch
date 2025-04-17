@@ -91,3 +91,13 @@ func GetAccessByProcessName(processName string, limit int) ([]FileAccess, error)
 		Find(&accesses).Error
 	return accesses, err
 }
+
+// GetAccessByPathPrefix 获取指定路径前缀的文件访问记录
+func GetAccessByPathPrefix(pathPrefix string, limit int) ([]FileAccess, error) {
+	var accesses []FileAccess
+	err := DB.Where("file_path LIKE ?", pathPrefix+"%").
+		Order("timestamp desc").
+		Limit(limit).
+		Find(&accesses).Error
+	return accesses, err
+}

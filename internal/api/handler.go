@@ -49,6 +49,9 @@ func InitRouter() *gin.Engine {
 
 		// 获取指定进程的文件访问记录
 		api.GET("/process-files", getProcessFiles)
+
+		// 获取按文件路径前缀筛选的访问记录
+		api.GET("/path-files", getFilesByPathPrefix)
 	}
 
 	return r
@@ -158,6 +161,31 @@ func getProcessFiles(c *gin.Context) {
 	}
 
 	accesses, err := database.GetAccessByProcessName(processName, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, accesses)
+}
+
+// getFilesByPathPrefix 获取指定路径前缀的文件访问记录
+func getFilesByPathPrefix(c *gin.Context) {
+	pathPrefix := c.Query("prefix")
+	if pathPrefix == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "缺少路径前缀参数"})
+		return
+	}
+
+	limit := 100 // 默认限制为100条记录
+	limitParam := c.Query("limit")
+	if limitParam != "" {
+		if n, err := strconv.Atoi(limitParam); err == nil && n > 0 {
+			limit = n
+		}
+	}
+
+	accesses, err := database.GetAccessByPathPrefix(pathPrefix, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
