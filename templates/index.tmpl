@@ -4,129 +4,129 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ .title }}</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
-<body>
-    <div class="container-fluid">
-        <header class="bg-dark text-white p-3">
-            <h1 class="mb-0">Mac文件访问监控系统</h1>
+<body class="bg-gray-100">
+    <div class="min-h-screen flex flex-col">
+        <header class="bg-gray-800 text-white p-3 shadow-md">
+            <h1 class="text-2xl font-bold">Mac文件访问监控系统</h1>
         </header>
 
-        <main class="container py-4">
-            <div class="row mb-4">
-                <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-header">
-                            <h2 class="card-title h4">控制面板</h2>
+        <main class="container mx-auto px-4 py-6 flex-grow">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                    <div class="bg-gray-100 px-4 py-3 border-b">
+                        <h2 class="text-lg font-semibold text-gray-700">控制面板</h2>
+                    </div>
+                    <div class="p-4">
+                        <div class="flex justify-between mb-4">
+                            <button id="startMonitorBtn" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300">开始监控</button>
+                            <button id="stopMonitorBtn" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-300 disabled:opacity-50 disabled:cursor-not-allowed" disabled>停止监控</button>
                         </div>
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between mb-3">
-                                <button id="startMonitorBtn" class="btn btn-primary">开始监控</button>
-                                <button id="stopMonitorBtn" class="btn btn-danger" disabled>停止监控</button>
-                            </div>
-                            <div class="alert alert-info" id="statusAlert">
-                                <p>监控状态: <span id="monitorStatus">未运行</span></p>
-                                <p id="commandInfo" class="small d-none">运行命令: <code>sudo fs_usage -f filesystem</code></p>
-                            </div>
+                        <div id="statusAlert" class="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 rounded">
+                            <p>监控状态: <span id="monitorStatus" class="font-medium">未运行</span></p>
+                            <p id="commandInfo" class="text-sm hidden">运行命令: <code class="bg-blue-50 px-1 py-0.5 rounded">sudo fs_usage -f filesystem</code></p>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-header">
-                            <h2 class="card-title h4">进程文件访问统计</h2>
-                        </div>
-                        <div class="card-body">
-                            <canvas id="processChart"></canvas>
-                        </div>
+                <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                    <div class="bg-gray-100 px-4 py-3 border-b">
+                        <h2 class="text-lg font-semibold text-gray-700">进程文件访问统计</h2>
+                    </div>
+                    <div class="p-4">
+                        <canvas id="processChart"></canvas>
                     </div>
                 </div>
             </div>
 
             <!-- 标签页导航 -->
-            <ul class="nav nav-tabs mb-3" id="accessTabs" role="tablist">
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="recent-tab" data-bs-toggle="tab" data-bs-target="#recent-content" type="button" role="tab" aria-controls="recent-content" aria-selected="true">最近文件访问记录</button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="process-detail-tab" data-bs-toggle="tab" data-bs-target="#process-detail-content" type="button" role="tab" aria-controls="process-detail-content" aria-selected="false">进程文件访问详情</button>
-                </li>
-            </ul>
-            
-            <!-- 标签页内容 -->
-            <div class="tab-content" id="accessTabsContent">
-                <!-- 第一个标签页：最近文件访问记录 -->
-                <div class="tab-pane fade show active" id="recent-content" role="tabpanel" aria-labelledby="recent-tab">
-                    <div class="card mb-4">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h2 class="card-title h4">最近文件访问记录</h2>
-                            <button id="refreshBtn" class="btn btn-sm btn-outline-secondary">刷新数据</button>
-                        </div>
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table table-striped table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th>时间</th>
-                                            <th>进程名</th>
-                                            <th>操作</th>
-                                            <th>文件路径</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="accessRecords">
-                                        <tr>
-                                            <td colspan="4" class="text-center">加载中...</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
+            <div x-data="{ activeTab: 'recent' }">
+                <div class="border-b border-gray-200">
+                    <nav class="flex -mb-px">
+                        <button 
+                            @click="activeTab = 'recent'" 
+                            :class="{ 'border-blue-500 text-blue-600': activeTab === 'recent', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'recent' }"
+                            class="py-4 px-6 font-medium text-sm border-b-2 focus:outline-none">
+                            最近文件访问记录
+                        </button>
+                        <button 
+                            @click="activeTab = 'process'" 
+                            :class="{ 'border-blue-500 text-blue-600': activeTab === 'process', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'process' }"
+                            class="py-4 px-6 font-medium text-sm border-b-2 focus:outline-none">
+                            进程文件访问详情
+                        </button>
+                    </nav>
                 </div>
                 
-                <!-- 第二个标签页：进程文件访问详情 -->
-                <div class="tab-pane fade" id="process-detail-content" role="tabpanel" aria-labelledby="process-detail-tab">
-                    <div class="card mb-4">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h2 class="card-title h4">进程文件访问详情</h2>
-                            <div class="d-flex align-items-center">
-                                <select id="processSelector" class="form-select me-2">
+                <!-- 标签页内容 -->
+                <div class="mt-4">
+                    <!-- 第一个标签页：最近文件访问记录 -->
+                    <div x-show="activeTab === 'recent'" class="bg-white rounded-lg shadow-md overflow-hidden">
+                        <div class="bg-gray-100 px-4 py-3 border-b flex justify-between items-center">
+                            <h2 class="text-lg font-semibold text-gray-700">最近文件访问记录</h2>
+                            <button id="refreshBtn" class="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 text-sm">刷新数据</button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">时间</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">进程名</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">文件路径</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="accessRecords" class="bg-white divide-y divide-gray-200">
+                                    <tr>
+                                        <td colspan="4" class="px-6 py-4 text-center text-sm text-gray-500">加载中...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- 第二个标签页：进程文件访问详情 -->
+                    <div x-show="activeTab === 'process'" x-cloak class="bg-white rounded-lg shadow-md overflow-hidden">
+                        <div class="bg-gray-100 px-4 py-3 border-b flex justify-between items-center">
+                            <h2 class="text-lg font-semibold text-gray-700">进程文件访问详情</h2>
+                            <div class="flex items-center">
+                                <select id="processSelector" class="mr-2 border border-gray-300 rounded px-3 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                                     <option value="">请选择进程</option>
                                 </select>
-                                <button id="loadProcessFilesBtn" class="btn btn-sm btn-primary">查看文件</button>
+                                <button id="loadProcessFilesBtn" class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300 text-sm">查看文件</button>
                             </div>
                         </div>
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table table-striped table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th>时间</th>
-                                            <th>操作</th>
-                                            <th>文件路径</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="processFileRecords">
-                                        <tr>
-                                            <td colspan="3" class="text-center">请选择一个进程</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">时间</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">文件路径</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="processFileRecords" class="bg-white divide-y divide-gray-200">
+                                    <tr>
+                                        <td colspan="3" class="px-6 py-4 text-center text-sm text-gray-500">请选择一个进程</td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
             </div>
         </main>
 
-        <footer class="bg-light text-center py-3">
-            <p class="mb-0">© 2023 文件访问监控系统</p>
+        <footer class="bg-white text-center py-4 mt-6 shadow-inner">
+            <p class="text-gray-600">© 2023 文件访问监控系统</p>
         </footer>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // 全局变量
         let processChart = null;
@@ -186,7 +186,7 @@
                 
                 isMonitoring = true;
                 statusText.textContent = '正在运行';
-                commandInfo.classList.remove('d-none');
+                commandInfo.classList.remove('hidden');
                 updateButtonStates();
             })
             .catch(error => {
@@ -209,7 +209,7 @@
                 
                 isMonitoring = false;
                 statusText.textContent = '未运行';
-                commandInfo.classList.add('d-none');
+                commandInfo.classList.add('hidden');
                 updateButtonStates();
             })
             .catch(error => {
@@ -224,14 +224,14 @@
                 startBtn.disabled = true;
                 stopBtn.disabled = false;
                 statusText.textContent = '正在运行';
-                commandInfo.classList.remove('d-none');
-                document.getElementById('statusAlert').className = 'alert alert-success';
+                commandInfo.classList.remove('hidden');
+                document.getElementById('statusAlert').className = 'bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded';
             } else {
                 startBtn.disabled = false;
                 stopBtn.disabled = true;
                 statusText.textContent = '未运行';
-                commandInfo.classList.add('d-none');
-                document.getElementById('statusAlert').className = 'alert alert-info';
+                commandInfo.classList.add('hidden');
+                document.getElementById('statusAlert').className = 'bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 rounded';
             }
         }
         
@@ -241,12 +241,12 @@
             .then(response => response.json())
             .then(data => {
                 if (data.error) {
-                    accessTable.innerHTML = `<tr><td colspan="4" class="text-danger">加载错误: ${data.error}</td></tr>`;
+                    accessTable.innerHTML = `<tr><td colspan="4" class="px-6 py-4 text-center text-sm text-red-500">加载错误: ${data.error}</td></tr>`;
                     return;
                 }
                 
                 if (data.length === 0) {
-                    accessTable.innerHTML = `<tr><td colspan="4" class="text-center">暂无记录</td></tr>`;
+                    accessTable.innerHTML = `<tr><td colspan="4" class="px-6 py-4 text-center text-sm text-gray-500">暂无记录</td></tr>`;
                     return;
                 }
                 
@@ -254,18 +254,19 @@
                 data.forEach(record => {
                     const time = new Date(record.timestamp).toLocaleString();
                     const row = document.createElement('tr');
+                    row.className = 'hover:bg-gray-50';
                     row.innerHTML = `
-                        <td>${time}</td>
-                        <td>${record.process_name}${record.pid ? '.' + record.pid : ''}</td>
-                        <td>${record.operation}</td>
-                        <td class="text-truncate" style="max-width: 400px;" title="${record.file_path || '无文件路径'}">${record.file_path || '<无文件路径>'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${time}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${record.process_name}${record.pid ? '.' + record.pid : ''}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${record.operation}</td>
+                        <td class="px-6 py-4 text-sm text-gray-500 truncate max-w-xs" title="${record.file_path || '无文件路径'}">${record.file_path || '<无文件路径>'}</td>
                     `;
                     accessTable.appendChild(row);
                 });
             })
             .catch(error => {
                 console.error('加载文件访问记录失败:', error);
-                accessTable.innerHTML = `<tr><td colspan="4" class="text-danger">加载失败: ${error.message}</td></tr>`;
+                accessTable.innerHTML = `<tr><td colspan="4" class="px-6 py-4 text-center text-sm text-red-500">加载失败: ${error.message}</td></tr>`;
             });
         }
         
@@ -307,8 +308,8 @@
                     datasets: [{
                         label: '文件访问次数',
                         data: counts,
-                        backgroundColor: 'rgba(54, 162, 235, 0.8)',
-                        borderColor: 'rgba(54, 162, 235, 1)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                        borderColor: 'rgb(59, 130, 246)',
                         borderWidth: 1
                     }]
                 },
@@ -358,18 +359,18 @@
         // 加载指定进程访问的文件
         function loadProcessFiles(processName) {
             const processFileRecords = document.getElementById('processFileRecords');
-            processFileRecords.innerHTML = '<tr><td colspan="3" class="text-center">加载中...</td></tr>';
+            processFileRecords.innerHTML = '<tr><td colspan="3" class="px-6 py-4 text-center text-sm text-gray-500">加载中...</td></tr>';
             
             fetch(`/api/process-files?process=${encodeURIComponent(processName)}`)
             .then(response => response.json())
             .then(data => {
                 if (data.error) {
-                    processFileRecords.innerHTML = `<tr><td colspan="3" class="text-danger">加载错误: ${data.error}</td></tr>`;
+                    processFileRecords.innerHTML = `<tr><td colspan="3" class="px-6 py-4 text-center text-sm text-red-500">加载错误: ${data.error}</td></tr>`;
                     return;
                 }
                 
                 if (data.length === 0) {
-                    processFileRecords.innerHTML = `<tr><td colspan="3" class="text-center">未找到该进程的文件访问记录</td></tr>`;
+                    processFileRecords.innerHTML = `<tr><td colspan="3" class="px-6 py-4 text-center text-sm text-gray-500">未找到该进程的文件访问记录</td></tr>`;
                     return;
                 }
                 
@@ -377,17 +378,18 @@
                 data.forEach(record => {
                     const time = new Date(record.timestamp).toLocaleString();
                     const row = document.createElement('tr');
+                    row.className = 'hover:bg-gray-50';
                     row.innerHTML = `
-                        <td>${time}</td>
-                        <td>${record.operation}</td>
-                        <td class="text-truncate" style="max-width: 500px;" title="${record.file_path || '无文件路径'}">${record.file_path || '<无文件路径>'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${time}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${record.operation}</td>
+                        <td class="px-6 py-4 text-sm text-gray-500 truncate max-w-md" title="${record.file_path || '无文件路径'}">${record.file_path || '<无文件路径>'}</td>
                     `;
                     processFileRecords.appendChild(row);
                 });
             })
             .catch(error => {
                 console.error('加载进程文件访问记录失败:', error);
-                processFileRecords.innerHTML = `<tr><td colspan="3" class="text-danger">加载失败: ${error.message}</td></tr>`;
+                processFileRecords.innerHTML = `<tr><td colspan="3" class="px-6 py-4 text-center text-sm text-red-500">加载失败: ${error.message}</td></tr>`;
             });
         }
     </script>
