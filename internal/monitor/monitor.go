@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"log"
 	"os/exec"
+	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -28,6 +30,23 @@ type accessKey struct {
 
 // 全局变量，用于存储当前监控的目录前缀
 var currentPathPrefix string
+
+// 全局变量，用于存储包含目录的通配符模式
+var includePattern string
+
+// 全局变量，用于存储排除目录的通配符模式
+var excludePattern string
+
+// 全局变量，用于存储包含进程的通配符模式
+var processPattern string
+
+// 全局变量，用于存储监控目录的正则表达式
+var includeRegexPattern string
+var includeRegex *regexp.Regexp
+
+// 全局变量，用于存储排除目录的正则表达式
+var excludeRegexPattern string
+var excludeRegex *regexp.Regexp
 
 // StartMonitoring 开始监控文件系统访问
 func StartMonitoring(doneChan chan bool) {
@@ -209,6 +228,11 @@ func parseFsUsageLine(line string) *database.FileAccess {
 	processInfo := fields[len(fields)-1]
 	processName, pid := parseProcessInfo(processInfo)
 
+	// 根据进程名过滤
+	if !shouldTrackProcess(processName) {
+		return nil
+	}
+
 	// 提取文件路径
 	filePath := extractFilePathSimple(line, fields)
 	if filePath == "" {
@@ -315,8 +339,13 @@ func isReadWriteOperation(operation string) bool {
 
 // shouldTrackFile 判断是否应该记录该文件的访问
 func shouldTrackFile(path string) bool {
-	// 如果设置了目录前缀，则只记录以该前缀开始的路径
-	if currentPathPrefix != "" && !strings.HasPrefix(path, currentPathPrefix) {
+	// 如果设置了包含通配符，则只记录匹配的路径
+	if includePattern != "" && !matchWildcard(path, includePattern) {
+		return false
+	}
+
+	// 如果设置了排除通配符，则排除匹配的路径
+	if excludePattern != "" && matchWildcard(path, excludePattern) {
 		return false
 	}
 
@@ -365,28 +394,275 @@ func shouldTrackFile(path string) bool {
 	return true
 }
 
+// shouldTrackProcess 判断是否应该记录该进程的访问
+func shouldTrackProcess(processName string) bool {
+	// 如果没有设置进程通配符，则记录所有进程
+	if processPattern == "" {
+		return true
+	}
+
+	// 否则只记录匹配通配符的进程
+	return matchWildcard(processName, processPattern)
+}
+
+// matchWildcard 判断路径是否匹配通配符模式
+// 支持 * 匹配任意字符序列, ? 匹配单个字符
+func matchWildcard(path, pattern string) bool {
+	// 使用Go标准库的filepath.Match函数进行通配符匹配
+	matched, err := filepath.Match(pattern, path)
+	if err != nil {
+		// 如果模式无效，记录错误并返回false
+		log.Printf("通配符模式 '%s' 无效: %v", pattern, err)
+		return false
+	}
+
+	// 如果直接匹配成功，返回true
+	if matched {
+		return true
+	}
+
+	// filepath.Match只支持匹配单个路径段，但我们需要匹配整个路径
+	// 如果pattern包含**/，表示匹配任意层级目录
+	if strings.Contains(pattern, "**/") {
+		parts := strings.Split(pattern, "**/")
+		if len(parts) == 2 {
+			prefix := parts[0]
+			suffix := parts[1]
+
+			// 检查路径是否以prefix开头
+			if prefix == "" || strings.HasPrefix(path, prefix) {
+				// 遍历所有可能的目录层级
+				restPath := path
+				if prefix != "" {
+					restPath = path[len(prefix):]
+				}
+
+				// 处理路径中的所有子目录
+				dirs := strings.Split(restPath, "/")
+				for i := 0; i < len(dirs); i++ {
+					subPath := strings.Join(dirs[i:], "/")
+					matched, err := filepath.Match(suffix, subPath)
+					if err == nil && matched {
+						return true
+					}
+				}
+			}
+		}
+	}
+
+	// 如果模式以*开头或结尾，我们需要进行部分匹配
+	if strings.HasPrefix(pattern, "*") && strings.HasSuffix(path, pattern[1:]) {
+		return true
+	}
+
+	if strings.HasSuffix(pattern, "*") && strings.HasPrefix(path, pattern[:len(pattern)-1]) {
+		return true
+	}
+
+	// 多个通配符分段匹配
+	if strings.Count(pattern, "*") > 1 {
+		segments := strings.Split(pattern, "*")
+		if segments[0] != "" && !strings.HasPrefix(path, segments[0]) {
+			return false
+		}
+
+		if segments[len(segments)-1] != "" && !strings.HasSuffix(path, segments[len(segments)-1]) {
+			return false
+		}
+
+		// 检查中间部分是否按顺序出现
+		current := path
+		for i := 0; i < len(segments); i++ {
+			if segments[i] == "" {
+				continue
+			}
+
+			index := strings.Index(current, segments[i])
+			if index == -1 {
+				return false
+			}
+			current = current[index+len(segments[i]):]
+		}
+
+		return true
+	}
+
+	return false
+}
+
 // GetFSUsageCommand 返回适合用户执行的fs_usage命令
 func GetFSUsageCommand() string {
 	return "sudo fs_usage -w -f filesystem"
 }
 
 // StartMonitoringWithPrefix 开始监控文件系统访问，支持指定目录前缀
-func StartMonitoringWithPrefix(doneChan chan bool, pathPrefix string) {
-	// 设置目录前缀
-	currentPathPrefix = pathPrefix
-	log.Printf("开始监控文件系统访问，目录前缀: %s", currentPathPrefix)
+func StartMonitoringWithPrefix(doneChan chan bool, pathPattern string) {
+	// 旧版本的目录前缀功能，保留向后兼容
+	currentPathPrefix = pathPattern
+
+	// 如果提供了路径模式，则尝试设置为通配符
+	if pathPattern != "" {
+		// 自动将前缀路径转为通配符模式
+		wildcardPattern := pathPattern + "*"
+		SetIncludePattern(wildcardPattern)
+	} else {
+		// 如果没有提供路径，清除通配符
+		ResetIncludePattern()
+	}
+
+	log.Printf("开始监控文件系统访问，目录匹配模式: %s", includePattern)
 
 	// 调用原有监控函数
 	StartMonitoring(doneChan)
+}
+
+// StartMonitoringWithWildcards 开始监控文件系统访问，支持指定通配符
+func StartMonitoringWithWildcards(doneChan chan bool, includeWildcard string, excludeWildcard string, processWildcard string) {
+	// 设置包含通配符
+	if includeWildcard != "" {
+		SetIncludePattern(includeWildcard)
+	} else {
+		ResetIncludePattern()
+	}
+
+	// 设置排除通配符
+	if excludeWildcard != "" {
+		SetExcludePattern(excludeWildcard)
+	} else {
+		ResetExcludePattern()
+	}
+
+	// 设置进程通配符
+	if processWildcard != "" {
+		SetProcessPattern(processWildcard)
+	} else {
+		ResetProcessPattern()
+	}
+
+	log.Printf("开始监控文件系统访问，包含路径通配符: %s, 排除路径通配符: %s, 进程通配符: %s",
+		includePattern, excludePattern, processPattern)
+
+	// 调用原有监控函数
+	StartMonitoring(doneChan)
+}
+
+// SetIncludePattern 设置包含目录的通配符
+func SetIncludePattern(pattern string) {
+	if pattern == "" {
+		ResetIncludePattern()
+		return
+	}
+
+	includePattern = pattern
+	log.Printf("已设置包含目录通配符: %s", pattern)
+}
+
+// GetIncludePattern 获取当前的包含目录通配符
+func GetIncludePattern() string {
+	return includePattern
+}
+
+// ResetIncludePattern 重置包含目录通配符
+func ResetIncludePattern() {
+	includePattern = ""
+	log.Println("已重置包含目录通配符")
+}
+
+// SetExcludePattern 设置排除目录的通配符
+func SetExcludePattern(pattern string) {
+	if pattern == "" {
+		ResetExcludePattern()
+		return
+	}
+
+	excludePattern = pattern
+	log.Printf("已设置排除目录通配符: %s", pattern)
+}
+
+// GetExcludePattern 获取当前的排除目录通配符
+func GetExcludePattern() string {
+	return excludePattern
 }
 
 // ResetPathPrefix 重置监控目录前缀
 func ResetPathPrefix() {
 	currentPathPrefix = ""
 	log.Println("已重置监控目录前缀")
+	// 同时重置包含目录通配符
+	ResetIncludePattern()
+}
+
+// ResetExcludePattern 重置排除目录通配符
+func ResetExcludePattern() {
+	excludePattern = ""
+	log.Println("已重置排除目录通配符")
 }
 
 // GetCurrentPathPrefix 获取当前监控的目录前缀
 func GetCurrentPathPrefix() string {
 	return currentPathPrefix
+}
+
+// 以下函数为了保持向后兼容性，但内部实现已改为通配符
+
+// SetIncludeRegex 设置包含目录的正则表达式（兼容旧API）
+func SetIncludeRegex(pattern string) error {
+	log.Println("警告: SetIncludeRegex 已弃用，请使用 SetIncludePattern")
+	SetIncludePattern(pattern)
+	return nil
+}
+
+// GetIncludeRegex 获取当前的包含目录正则表达式（兼容旧API）
+func GetIncludeRegex() string {
+	return GetIncludePattern()
+}
+
+// ResetIncludeRegex 重置包含目录正则表达式（兼容旧API）
+func ResetIncludeRegex() {
+	ResetIncludePattern()
+}
+
+// SetExcludeRegex 设置排除目录的正则表达式（兼容旧API）
+func SetExcludeRegex(pattern string) error {
+	log.Println("警告: SetExcludeRegex 已弃用，请使用 SetExcludePattern")
+	SetExcludePattern(pattern)
+	return nil
+}
+
+// GetExcludeRegex 获取当前的排除目录正则表达式（兼容旧API）
+func GetExcludeRegex() string {
+	return GetExcludePattern()
+}
+
+// ResetExcludeRegex 重置排除目录正则表达式（兼容旧API）
+func ResetExcludeRegex() {
+	ResetExcludePattern()
+}
+
+// StartMonitoringWithRegex 开始监控文件系统访问（兼容旧API）
+func StartMonitoringWithRegex(doneChan chan bool, includePattern string, excludePattern string) {
+	log.Println("警告: StartMonitoringWithRegex 已弃用，请使用 StartMonitoringWithWildcards")
+	StartMonitoringWithWildcards(doneChan, includePattern, excludePattern, "")
+}
+
+// SetProcessPattern 设置包含进程的通配符
+func SetProcessPattern(pattern string) {
+	if pattern == "" {
+		ResetProcessPattern()
+		return
+	}
+
+	processPattern = pattern
+	log.Printf("已设置包含进程通配符: %s", pattern)
+}
+
+// GetProcessPattern 获取当前的包含进程通配符
+func GetProcessPattern() string {
+	return processPattern
+}
+
+// ResetProcessPattern 重置包含进程通配符
+func ResetProcessPattern() {
+	processPattern = ""
+	log.Println("已重置包含进程通配符")
 }

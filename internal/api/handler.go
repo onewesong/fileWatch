@@ -24,9 +24,11 @@ func InitRouter() *gin.Engine {
 	// 主页路由
 	r.GET("/", func(c *gin.Context) {
 		c.HTML(http.StatusOK, "index.tmpl", gin.H{
-			"title":      "文件访问监控",
-			"monitoring": monitoringActive,
-			"pathPrefix": monitor.GetCurrentPathPrefix(),
+			"title":          "文件访问监控",
+			"monitoring":     monitoringActive,
+			"includePattern": monitor.GetIncludePattern(),
+			"excludePattern": monitor.GetExcludePattern(),
+			"processPattern": monitor.GetProcessPattern(),
 		})
 	})
 
@@ -86,27 +88,44 @@ func startMonitoring(c *gin.Context) {
 		return
 	}
 
-	// 解析请求体，获取目录前缀
+	// 解析请求体，获取通配符参数
 	var request struct {
-		PathPrefix string `json:"pathPrefix"`
+		IncludePattern string `json:"includePattern"` // 包含目录通配符
+		ExcludePattern string `json:"excludePattern"` // 排除目录通配符
+		ProcessPattern string `json:"processPattern"` // 进程通配符
+		// 以下参数为了向后兼容保留
+		IncludeRegex string `json:"includeRegex"` // 旧的包含目录正则表达式
+		ExcludeRegex string `json:"excludeRegex"` // 旧的排除目录正则表达式
 	}
 
 	if err := c.ShouldBindJSON(&request); err != nil {
-		// 如果解析失败也不要报错，视为没有提供前缀
-		request.PathPrefix = ""
+		// 如果解析失败也不要报错，视为没有提供参数
+		request.IncludePattern = ""
+		request.ExcludePattern = ""
+		request.ProcessPattern = ""
+	}
+
+	// 如果新参数为空，尝试使用旧参数
+	if request.IncludePattern == "" && request.IncludeRegex != "" {
+		request.IncludePattern = request.IncludeRegex
+	}
+	if request.ExcludePattern == "" && request.ExcludeRegex != "" {
+		request.ExcludePattern = request.ExcludeRegex
 	}
 
 	// 创建一个通道用于停止监控
 	doneChan = make(chan bool)
 	monitoringActive = true
 
-	// 启动监控服务，传递目录前缀
-	go monitor.StartMonitoringWithPrefix(doneChan, request.PathPrefix)
+	// 使用通配符匹配模式启动监控
+	go monitor.StartMonitoringWithWildcards(doneChan, request.IncludePattern, request.ExcludePattern, request.ProcessPattern)
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":    "已启动文件系统监控",
-		"command":    monitor.GetFSUsageCommand(),
-		"pathPrefix": request.PathPrefix,
+		"message":        "已启动文件系统监控",
+		"command":        monitor.GetFSUsageCommand(),
+		"includePattern": request.IncludePattern,
+		"excludePattern": request.ExcludePattern,
+		"processPattern": request.ProcessPattern,
 	})
 }
 
@@ -121,8 +140,10 @@ func stopMonitoring(c *gin.Context) {
 	doneChan <- true
 	monitoringActive = false
 
-	// 重置监控目录前缀
+	// 重置所有过滤条件
 	monitor.ResetPathPrefix()
+	monitor.ResetExcludeRegex()
+	monitor.ResetProcessPattern()
 
 	c.JSON(http.StatusOK, gin.H{"message": "已停止文件系统监控"})
 }
