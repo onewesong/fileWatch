@@ -45,28 +45,77 @@
                 </div>
             </div>
 
-            <div class="card mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h2 class="card-title h4">最近文件访问记录</h2>
-                    <button id="refreshBtn" class="btn btn-sm btn-outline-secondary">刷新数据</button>
+            <!-- 标签页导航 -->
+            <ul class="nav nav-tabs mb-3" id="accessTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="recent-tab" data-bs-toggle="tab" data-bs-target="#recent-content" type="button" role="tab" aria-controls="recent-content" aria-selected="true">最近文件访问记录</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="process-detail-tab" data-bs-toggle="tab" data-bs-target="#process-detail-content" type="button" role="tab" aria-controls="process-detail-content" aria-selected="false">进程文件访问详情</button>
+                </li>
+            </ul>
+            
+            <!-- 标签页内容 -->
+            <div class="tab-content" id="accessTabsContent">
+                <!-- 第一个标签页：最近文件访问记录 -->
+                <div class="tab-pane fade show active" id="recent-content" role="tabpanel" aria-labelledby="recent-tab">
+                    <div class="card mb-4">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h2 class="card-title h4">最近文件访问记录</h2>
+                            <button id="refreshBtn" class="btn btn-sm btn-outline-secondary">刷新数据</button>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>时间</th>
+                                            <th>进程名</th>
+                                            <th>操作</th>
+                                            <th>文件路径</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="accessRecords">
+                                        <tr>
+                                            <td colspan="4" class="text-center">加载中...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-striped table-hover">
-                            <thead>
-                                <tr>
-                                    <th>时间</th>
-                                    <th>进程名</th>
-                                    <th>操作</th>
-                                    <th>文件路径</th>
-                                </tr>
-                            </thead>
-                            <tbody id="accessRecords">
-                                <tr>
-                                    <td colspan="4" class="text-center">加载中...</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                
+                <!-- 第二个标签页：进程文件访问详情 -->
+                <div class="tab-pane fade" id="process-detail-content" role="tabpanel" aria-labelledby="process-detail-tab">
+                    <div class="card mb-4">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h2 class="card-title h4">进程文件访问详情</h2>
+                            <div class="d-flex align-items-center">
+                                <select id="processSelector" class="form-select me-2">
+                                    <option value="">请选择进程</option>
+                                </select>
+                                <button id="loadProcessFilesBtn" class="btn btn-sm btn-primary">查看文件</button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>时间</th>
+                                            <th>操作</th>
+                                            <th>文件路径</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="processFileRecords">
+                                        <tr>
+                                            <td colspan="3" class="text-center">请选择一个进程</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -77,6 +126,7 @@
         </footer>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // 全局变量
         let processChart = null;
@@ -102,6 +152,23 @@
             refreshBtn.addEventListener('click', function() {
                 loadRecentAccess();
                 loadAccessSummary();
+            });
+            
+            // 进程文件访问详情
+            const processSelector = document.getElementById('processSelector');
+            const loadProcessFilesBtn = document.getElementById('loadProcessFilesBtn');
+            
+            // 初始加载进程列表
+            loadProcessList();
+            
+            // 点击查看按钮时加载进程访问的文件
+            loadProcessFilesBtn.addEventListener('click', function() {
+                const selectedProcess = processSelector.value;
+                if (selectedProcess) {
+                    loadProcessFiles(selectedProcess);
+                } else {
+                    alert('请先选择一个进程');
+                }
             });
         });
         
@@ -258,6 +325,69 @@
                         }
                     }
                 }
+            });
+        }
+        
+        // 加载进程列表
+        function loadProcessList() {
+            fetch('/api/summary')
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    console.error('加载进程列表失败:', data.error);
+                    return;
+                }
+                
+                const processSelector = document.getElementById('processSelector');
+                // 清空现有选项，只保留第一个默认选项
+                processSelector.innerHTML = '<option value="">请选择进程</option>';
+                
+                // 添加新选项
+                data.forEach(item => {
+                    const option = document.createElement('option');
+                    option.value = item.process_name;
+                    option.textContent = `${item.process_name} (${item.count}次访问)`;
+                    processSelector.appendChild(option);
+                });
+            })
+            .catch(error => {
+                console.error('加载进程列表失败:', error);
+            });
+        }
+        
+        // 加载指定进程访问的文件
+        function loadProcessFiles(processName) {
+            const processFileRecords = document.getElementById('processFileRecords');
+            processFileRecords.innerHTML = '<tr><td colspan="3" class="text-center">加载中...</td></tr>';
+            
+            fetch(`/api/process-files?process=${encodeURIComponent(processName)}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    processFileRecords.innerHTML = `<tr><td colspan="3" class="text-danger">加载错误: ${data.error}</td></tr>`;
+                    return;
+                }
+                
+                if (data.length === 0) {
+                    processFileRecords.innerHTML = `<tr><td colspan="3" class="text-center">未找到该进程的文件访问记录</td></tr>`;
+                    return;
+                }
+                
+                processFileRecords.innerHTML = '';
+                data.forEach(record => {
+                    const time = new Date(record.timestamp).toLocaleString();
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${time}</td>
+                        <td>${record.operation}</td>
+                        <td class="text-truncate" style="max-width: 500px;" title="${record.file_path || '无文件路径'}">${record.file_path || '<无文件路径>'}</td>
+                    `;
+                    processFileRecords.appendChild(row);
+                });
+            })
+            .catch(error => {
+                console.error('加载进程文件访问记录失败:', error);
+                processFileRecords.innerHTML = `<tr><td colspan="3" class="text-danger">加载失败: ${error.message}</td></tr>`;
             });
         }
     </script>

@@ -81,3 +81,13 @@ func GetRecentAccessByTimeRange(start, end time.Time) ([]FileAccess, error) {
 		Find(&accesses).Error
 	return accesses, err
 }
+
+// GetAccessByProcessName 获取指定进程的文件访问记录
+func GetAccessByProcessName(processName string, limit int) ([]FileAccess, error) {
+	var accesses []FileAccess
+	err := DB.Where("process_name = ?", processName).
+		Order("timestamp desc").
+		Limit(limit).
+		Find(&accesses).Error
+	return accesses, err
+}

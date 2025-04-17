@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -18,11 +19,11 @@ func InitRouter() *gin.Engine {
 
 	// 静态文件服务
 	r.Static("/static", "./static")
-	r.LoadHTMLGlob("templates/*")
+	r.LoadHTMLGlob("templates/*.tmpl")
 
 	// 主页路由
 	r.GET("/", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "index.html", gin.H{
+		c.HTML(http.StatusOK, "index.tmpl", gin.H{
 			"title":      "文件访问监控",
 			"monitoring": monitoringActive,
 		})
@@ -45,6 +46,9 @@ func InitRouter() *gin.Engine {
 
 		// 获取按时间范围过滤的访问记录
 		api.GET("/time-range", getAccessByTimeRange)
+
+		// 获取指定进程的文件访问记录
+		api.GET("/process-files", getProcessFiles)
 	}
 
 	return r
@@ -129,6 +133,31 @@ func getAccessByTimeRange(c *gin.Context) {
 
 	// 获取记录
 	accesses, err := database.GetRecentAccessByTimeRange(startTime, endTime)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, accesses)
+}
+
+// getProcessFiles 获取指定进程的文件访问记录
+func getProcessFiles(c *gin.Context) {
+	processName := c.Query("process")
+	if processName == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "缺少进程名称参数"})
+		return
+	}
+
+	limit := 100 // 默认限制为100条记录
+	limitParam := c.Query("limit")
+	if limitParam != "" {
+		if n, err := strconv.Atoi(limitParam); err == nil && n > 0 {
+			limit = n
+		}
+	}
+
+	accesses, err := database.GetAccessByProcessName(processName, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
