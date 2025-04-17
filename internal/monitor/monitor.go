@@ -6,7 +6,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -226,7 +225,7 @@ func parseFsUsageLine(line string) *database.FileAccess {
 
 	// 提取进程信息（通常是最后一个字段）
 	processInfo := fields[len(fields)-1]
-	processName, pid := parseProcessInfo(processInfo)
+	processName := parseProcessInfo(processInfo)
 
 	// 根据进程名过滤
 	if !shouldTrackProcess(processName) {
@@ -248,30 +247,23 @@ func parseFsUsageLine(line string) *database.FileAccess {
 	return &database.FileAccess{
 		Timestamp:   time.Now(),
 		ProcessName: processName,
-		PID:         pid,
 		FilePath:    filePath,
 		Operation:   operation,
 	}
 }
 
-// parseProcessInfo 从进程信息字符串中提取进程名和PID
-func parseProcessInfo(info string) (string, int) {
+// parseProcessInfo 从进程信息字符串中提取进程名
+func parseProcessInfo(info string) string {
 	processName := info
-	pid := 0
 
 	// 尝试解析进程名和PID (格式通常是 processName.PID)
 	lastDot := strings.LastIndex(info, ".")
 	if lastDot > 0 && lastDot < len(info)-1 {
 		processName = info[:lastDot]
-		pidStr := info[lastDot+1:]
-		pid, _ = strconv.Atoi(pidStr)
-		if pid == 0 {
-			// 如果PID解析失败，使用整个字符串作为进程名
-			processName = info
-		}
+		// 不再提取PID
 	}
 
-	return processName, pid
+	return processName
 }
 
 // extractFilePathSimple 使用简单的字符串方法从输出行中提取文件路径

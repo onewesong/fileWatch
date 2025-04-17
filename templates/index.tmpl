@@ -111,8 +111,7 @@
                                 <thead class="bg-gray-50">
                                     <tr>
                                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">时间</th>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">进程名</th>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">进程ID</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">进程</th>
                                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
                                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">文件路径</th>
                                     </tr>
@@ -177,8 +176,7 @@
                                         <thead class="bg-gray-50">
                                             <tr>
                                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">时间</th>
-                                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">进程名</th>
-                                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">进程ID</th>
+                                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">进程</th>
                                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
                                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">文件路径</th>
                                             </tr>
@@ -461,7 +459,6 @@
                     row.innerHTML = `
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${time}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${record.process_name}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${record.pid || '-'}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${record.operation}</td>
                         <td class="px-6 py-4 text-sm text-gray-500 truncate max-w-xs" title="${record.file_path || '无文件路径'}">${record.file_path || '<无文件路径>'}</td>
                     `;
@@ -635,7 +632,6 @@
                     row.innerHTML = `
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${time}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${record.process_name}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${record.pid || '-'}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${record.operation}</td>
                         <td class="px-6 py-4 text-sm text-gray-500 truncate max-w-xs" title="${record.file_path || '无文件路径'}">${record.file_path || '<无文件路径>'}</td>
                     `;

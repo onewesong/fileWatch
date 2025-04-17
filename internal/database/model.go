@@ -11,7 +11,6 @@ type FileAccess struct {
 	CreatedAt   time.Time `json:"created_at"`
 	Timestamp   time.Time `json:"timestamp"`
 	ProcessName string    `json:"process_name"`
-	PID         int       `json:"pid"`
 	FilePath    string    `json:"file_path"`
 	Operation   string    `json:"operation"`
 }
