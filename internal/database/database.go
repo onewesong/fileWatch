@@ -33,6 +33,28 @@ func AddFileAccess(access FileAccess) error {
 	return DB.Create(&access).Error
 }
 
+// AddFileAccessBatch 批量添加文件访问记录
+func AddFileAccessBatch(accesses []FileAccess) error {
+	// 创建事务
+	tx := DB.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	if err := tx.CreateInBatches(accesses, 100).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
+}
+
 // GetFileAccessList 获取最近的文件访问记录
 func GetFileAccessList(limit int) ([]FileAccess, error) {
 	var accesses []FileAccess
