@@ -29,6 +29,7 @@ func InitRouter() *gin.Engine {
 			"includePattern": monitor.GetIncludePattern(),
 			"excludePattern": monitor.GetExcludePattern(),
 			"processPattern": monitor.GetProcessPattern(),
+			"storeStats":     database.GetStoreStats(),
 		})
 	})
 
@@ -55,6 +56,12 @@ func InitRouter() *gin.Engine {
 
 		// 获取按文件路径前缀筛选的访问记录
 		api.GET("/path-files", getFilesByPathPrefix)
+
+		// 获取内存存储统计信息
+		api.GET("/store/stats", getStoreStats)
+
+		// 设置内存存储的最大记录数
+		api.POST("/store/max-records", setMaxRecords)
 	}
 
 	return r
@@ -228,4 +235,34 @@ func getFilesByPathPrefix(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, accesses)
+}
+
+// getStoreStats 获取内存存储的统计信息
+func getStoreStats(c *gin.Context) {
+	stats := database.GetStoreStats()
+	c.JSON(http.StatusOK, stats)
+}
+
+// setMaxRecords 设置内存存储的最大记录数
+func setMaxRecords(c *gin.Context) {
+	var request struct {
+		MaxRecords int `json:"maxRecords" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "请提供有效的maxRecords参数"})
+		return
+	}
+
+	if request.MaxRecords <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "maxRecords必须大于0"})
+		return
+	}
+
+	database.SetMaxRecords(request.MaxRecords)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "成功设置最大记录数",
+		"stats":   database.GetStoreStats(),
+	})
 }
