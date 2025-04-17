@@ -92,7 +92,19 @@
                     <div x-show="activeTab === 'recent'" class="bg-white rounded-lg shadow-md overflow-hidden">
                         <div class="bg-gray-100 px-4 py-3 border-b flex justify-between items-center">
                             <h2 class="text-lg font-semibold text-gray-700">最近文件访问记录</h2>
-                            <button id="refreshBtn" class="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 text-sm">刷新数据</button>
+                            <div class="flex items-center space-x-2">
+                                <div class="flex items-center mr-3">
+                                    <input type="checkbox" id="autoRefreshToggle" class="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                                    <label for="autoRefreshToggle" class="text-sm text-gray-700">自动刷新</label>
+                                </div>
+                                <select id="refreshInterval" class="text-sm border border-gray-300 rounded px-2 py-1">
+                                    <option value="5000">5秒</option>
+                                    <option value="10000" selected>10秒</option>
+                                    <option value="30000">30秒</option>
+                                    <option value="60000">1分钟</option>
+                                </select>
+                                <button id="refreshBtn" class="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 text-sm">刷新数据</button>
+                            </div>
                         </div>
                         <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200">
@@ -202,6 +214,7 @@
         let currentIncludePattern = {{ if .includePattern }}"{{ .includePattern }}"{{ else }}""{{ end }};
         let currentExcludePattern = {{ if .excludePattern }}"{{ .excludePattern }}"{{ else }}""{{ end }};
         let currentProcessPattern = {{ if .processPattern }}"{{ .processPattern }}"{{ else }}""{{ end }};
+        let autoRefreshTimer = null;
         
         // DOM元素
         const startBtn = document.getElementById('startMonitorBtn');
@@ -234,6 +247,26 @@
             refreshBtn.addEventListener('click', function() {
                 loadRecentAccess();
                 loadAccessSummary();
+            });
+            
+            // 自动刷新功能
+            const autoRefreshToggle = document.getElementById('autoRefreshToggle');
+            const refreshInterval = document.getElementById('refreshInterval');
+            
+            autoRefreshToggle.addEventListener('change', function() {
+                if (this.checked) {
+                    startAutoRefresh();
+                } else {
+                    stopAutoRefresh();
+                }
+            });
+            
+            refreshInterval.addEventListener('change', function() {
+                if (autoRefreshToggle.checked) {
+                    // 重启自动刷新以应用新间隔
+                    stopAutoRefresh();
+                    startAutoRefresh();
+                }
             });
             
             // 进程文件访问详情
@@ -598,6 +631,30 @@
                 console.error('搜索文件路径记录失败:', error);
                 pathSearchRecords.innerHTML = `<tr><td colspan="4" class="px-6 py-4 text-center text-sm text-red-500">搜索失败: ${error.message}</td></tr>`;
             });
+        }
+        
+        // 开始自动刷新
+        function startAutoRefresh() {
+            // 先清除可能存在的定时器
+            stopAutoRefresh();
+            
+            // 获取刷新间隔
+            const interval = parseInt(document.getElementById('refreshInterval').value);
+            
+            // 设置新的定时器
+            autoRefreshTimer = setInterval(function() {
+                loadRecentAccess();
+                // 可选：同时更新统计图表
+                loadAccessSummary();
+            }, interval);
+        }
+        
+        // 停止自动刷新
+        function stopAutoRefresh() {
+            if (autoRefreshTimer) {
+                clearInterval(autoRefreshTimer);
+                autoRefreshTimer = null;
+            }
         }
     </script>
 </body>
