@@ -298,7 +298,7 @@ func isReadWriteOperation(operation string) bool {
 		"close":          true,
 		"close_nocancel": true,
 		"create":         true,
-		"unlink":         true,
+		"unlink":         false,
 		"rename":         true,
 		"truncate":       true,
 		"ftruncate":      true,
@@ -315,6 +315,7 @@ func shouldTrackFile(path string) bool {
 	// 忽略系统目录和临时文件
 	ignoredPrefixes := []string{
 		"/dev/",
+		"/usr/share/",
 		"/private/var/folders/",
 		"/System/Library/",
 		"/Library/Caches/",
