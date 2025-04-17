@@ -1,0 +1,72 @@
+/* 自定义样式 */
+body {
+    background-color: #f8f9fa;
+}
+
+.container-fluid {
+    padding: 0;
+}
+
+header {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.card {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+}
+
+.card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.text-truncate {
+    max-width: 400px;
+}
+
+footer {
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* 按钮样式 */
+.btn-primary {
+    background-color: #4a6fdc;
+    border-color: #4a6fdc;
+}
+
+.btn-primary:hover {
+    background-color: #3d5cba;
+    border-color: #3d5cba;
+}
+
+.btn-danger {
+    background-color: #dc4a4a;
+    border-color: #dc4a4a;
+}
+
+.btn-danger:hover {
+    background-color: #ba3d3d;
+    border-color: #ba3d3d;
+}
+
+/* 表格样式 */
+.table-hover tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+}
+
+/* 状态提示样式 */
+#statusAlert {
+    transition: all 0.3s ease;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .container {
+        padding: 0 10px;
+    }
+    
+    .card-body {
+        padding: 15px;
+    }
+} 
